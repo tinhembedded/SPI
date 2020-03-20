@@ -352,13 +352,6 @@ static long spi_device_ioctl(struct file *filp, unsigned int cmd,
 
         mutex_lock(&msg->msg_lock);
 
-        /*
-         * FIXME: check arg and cmd argument, if cmd is ioctl type
-         */
-
-        /*
-         * FIXME: check all ioctl inputs and outputs
-         */
 
         switch (cmd) {
         case SPI_DEVICE_RD_TX_ACTUAL_LENGTH:
@@ -395,13 +388,6 @@ static long spi_device_ioctl(struct file *filp, unsigned int cmd,
 
         default:
 
-                /*
-                 * TODO: add support for full-duplex transfer
-                 * message uses own structures which located in
-                 * spi-slave_device-dev.h,
-                 *
-                 * need translate ioctl message to spi slave_device message standards
-                 */
 
                 size_msg = _IOC_SIZE(cmd);
                 pr_info("%s: ioctl size_msg:%d/n", DRIVER_NAME, size_msg);
