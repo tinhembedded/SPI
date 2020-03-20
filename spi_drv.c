@@ -1,4 +1,5 @@
 #include <linux/init.h>
+#include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/fs.h>
 #include <linux/device.h>
@@ -12,6 +13,8 @@
 #include <linux/compat.h>
 #include <linux/poll.h>
 #include <asm/current.h>
+#include <linux/kern_levels.h>
+#include <linux/printk.h>
 
 #include "spi.h"
 #include "spi_drv.h"
@@ -113,7 +116,7 @@ static int spi_device_open(struct inode *inode, struct file *filp)
 
 	filp->private_data = drv;
         nonseekable_open(inode, filp);
-        slave_device = drv.slave_device;
+        slave_device = drv->slave_device;
 
         msg = spi_device_msg_alloc(slave_device);
         if (!msg)
@@ -142,7 +145,7 @@ static int spi_device_open(struct inode *inode, struct file *filp)
 static int spi_device_release(struct inode *inode, struct file *filp)
 {
 	struct spi_drv *drv = filp->private_data;
-        struct spi_device *slave_device = data->slave_device;
+        struct spi_device *slave_device = drv->slave_device;
         struct spi_device_message *msg = slave_device->msg;
 
         pr_info("%s: function: release\n", DRIVER_NAME);
@@ -154,7 +157,7 @@ static int spi_device_release(struct inode *inode, struct file *filp)
 
         spi_device_msg_remove(slave_device);
 
-        data->users--;
+        drv->open_cnt--;
         mutex_unlock(&spi_device_dev_list_lock);
 
 
@@ -192,8 +195,8 @@ static ssize_t spi_device_write(struct file *filp, const char __user *buf,
         ssize_t status = 0;
         int ret = 0;
         unsigned long missing;
-        struct spi_drv *data = filp->private_data;
-        struct spi_device *slave_device = data->slave_device;
+        struct spi_drv *drv  = filp->private_data;
+        struct spi_device *slave_device = drv->slave_device;
         struct spi_device_message *msg = slave_device->msg;
 
         pr_info("%s: function: write\n", DRIVER_NAME);
@@ -238,10 +241,6 @@ static ssize_t spi_device_write(struct file *filp, const char __user *buf,
 }
 
 
-
-
-}
-
 /*
  * con trỏ hàm read
  * chức năng: đọc dữ liệu từ buffer của char device vào kernel buffer,
@@ -270,8 +269,8 @@ static ssize_t spi_device_write(struct file *filp, const char __user *buf,
 static ssize_t spi_device_read(struct file *filp, char __user *buf, size_t count,
                              loff_t *f_pos)
 {
-	struct spi_drv *data = filp->private_data;
-        struct spi_device *slave_device = data->slave_device;
+	struct spi_drv *drv = filp->private_data;
+        struct spi_device *slave_device = drv->slave_device;
         struct spi_device_message *msg = slave_device->msg;
         ssize_t status;
         unsigned long missing;
@@ -337,8 +336,8 @@ static ssize_t spi_device_read(struct file *filp, char __user *buf, size_t count
 static long spi_device_ioctl(struct file *filp, unsigned int cmd,
                            unsigned long arg)
 {
-        struct spi_drv *data = filp->private_data;
-        struct spi_device *slave_device = data->slave_device;
+        struct spi_drv *drv = filp->private_data;
+        struct spi_device *slave_device = drv->slave_device;
         struct spi_device_message *msg = slave_device->msg;
 
         struct spi_device_ioctl_transfer *ioctl_msg;
@@ -434,8 +433,8 @@ static long spi_device_ioctl(struct file *filp, unsigned int cmd,
 static unsigned int spi_device_event_poll(struct file *filp,
                                         struct poll_table_struct *wait)
 {
-        struct spi_drv *data = filp->private_data;
-        struct spi_device *slave_device = data->slave_device;
+        struct spi_drv *drv = filp->private_data;
+        struct spi_device *slave_device = drv->slave_device;
         struct spi_device_message *msg = slave_device->msg;
 
         pr_info("%s: function: poll\n", DRIVER_NAME);
@@ -508,11 +507,11 @@ err_out:
 
 static int spi_device_remove(struct spi_dev_device *spi)
 {
-        struct spi_device_data *data = spi_device_get_drv_data(spi);
+        struct spi_drv *drv = spi_device_get_drv_data(spi);
 
         pr_info("%s: function: remove\n", DRIVER_NAME);
 
-        data->slave_device = NULL;
+        drv->slave_device = NULL;
 
         mutex_lock(&spi_device_dev_list_lock);
         list_del(&data->device_entry);
