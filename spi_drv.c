@@ -15,6 +15,8 @@
 #include <asm/current.h>
 #include <linux/kern_levels.h>
 #include <linux/printk.h>
+#include <linux/sched/signal.h>
+#include <linux/spi/spi.h>
 
 #include "spi.h"
 #include "spi_drv.h"
@@ -37,7 +39,8 @@ typedef struct spi_dev {
 	unsigned char *data_regs;
 }spi_dev_t;
 
-struct _spi_drv {
+
+struct spi_drv {
         dev_t dev_num;                             //present device number
 	int id;
 	unsigned int open_cnt;
@@ -46,7 +49,8 @@ struct _spi_drv {
 	struct device *dev;
 	struct cdev *vcdev;
 	struct spi_dev_t *spi_hw;
-}spi_drv;
+	struct spi_device *slave_device;
+};
 
 struct spi_device_message {
 	void  __iomem *tx;
@@ -62,7 +66,7 @@ struct spi_device_message {
 	wait_queue_head_t wait;
 	spinlock_t wait_lock;
 	struct mutex msg_lock;
-}spi_device_message;
+};
 
 struct spi_device {
 	struct device dev;
@@ -71,7 +75,7 @@ struct spi_device {
 
 	int (*transfer_msg)(struct spi_device *slave_device);
 	void (*clear_msg)(struct spi_device *slave_device);
-}spi_device;
+};
 
 /*
  * con trỏ hàm open
@@ -88,8 +92,8 @@ struct spi_device {
  */
 static int spi_device_open(struct inode *inode, struct file *filp)
 {
-	struct spi_drv *drv = &drv;
-        struct spi_device *slave_device;
+	struct spi_drv *drv;
+	struct spi_device *slave_device = drv->slave_device;
         struct spi_device_message *msg;
         int ret = -ENXIO;
 
@@ -109,14 +113,13 @@ static int spi_device_open(struct inode *inode, struct file *filp)
                 return ret;
         }
 	
-	spi_drv.open_cnt++;
+	drv->open_cnt++;
 	printk("OK_1");
-	if(spi_drv.open_cnt > 1)
+	if(drv->open_cnt > 1)
 		return -EBUSY;
 
 	filp->private_data = drv;
         nonseekable_open(inode, filp);
-        slave_device = drv->slave_device;
 
         msg = spi_device_msg_alloc(slave_device);
         if (!msg)
@@ -459,7 +462,7 @@ static const struct file_operations spi_device_fops = {
 static int spi_device_probe(struct spi_dev_device *spi)
 {
         int ret = 0;
-        struct spi_drv *data;
+        struct spi_drv *drv;
         struct spi_device *slave_device;
         struct device *dev;
         struct device_node *node;
@@ -467,12 +470,12 @@ static int spi_device_probe(struct spi_dev_device *spi)
         pr_info("%s: function: probe\n", DRIVER_NAME);
 
         //data = &spi->dev.plaformdata
-        data = kzalloc(sizeof(*data), GFP_KERNEL);
-        if (!data)
+        drv = kzalloc(sizeof(*drv), GFP_KERNEL);
+        if (!drv)
                 return -ENODEV;
 
         slave_device = spi->slave_device;
-        data->slave_device = slave_device;
+        spi->slave_device = slave_device;
         node = spi->dev.of_node;
 
         if (!slave_device) {
@@ -514,39 +517,38 @@ static int spi_device_remove(struct spi_dev_device *spi)
         drv->slave_device = NULL;
 
         mutex_lock(&spi_device_dev_list_lock);
-        list_del(&data->device_entry);
+        list_del(&drv->device_entry);
         mutex_unlock(&spi_device_dev_list_lock);
 
-        device_destroy(spi_device_class, data->devt);
+        device_destroy(drv->spi_device_class, drv->dev_num);
 
-        kfree(data);
+        kfree(drv);
 
         return 0;
 }
 
-static const struct of_device_id spi_device_dt_ids[] = {
+static const struct of_device_id spi_device_of_match[] = {
         { .compatible = "linux,spi_device"},
         {},
 };
-MODULE_DEVICE_TABLE(of, spi_device_dt_ids);
+MODULE_DEVICE_TABLE(of, spi_device_of_match);
 
-static const struct spi_divice_id  spi_device_id[] {
+static const struct spi_device_id  spi_device_table[] = {
 	{"spi_device", 0 },
 	{}
 };
+MODULE_DEVICE_TABLE(spi, spi_device_table);
 
-MODULE_DEVICE_TABLE(spi, spi_device_id);
 
 static struct spi_driver slave_device_driver = {
         .driver = {
                 .name = DRIVER_NAME,
-                .of_match_table = of_match_ptr(spi_device_dt_ids),
+                .of_match_table = spi_device_of_match,
         },
         .probe = spi_device_probe,
         .remove = spi_device_remove,
-	.id_table = spi_device_id;
+	.id_table = spi_device_id,
 };
-
 module_spi_driver(spi_device_driver);
 
 
