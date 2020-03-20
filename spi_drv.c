@@ -45,7 +45,7 @@ struct _spi_drv {
 	struct spi_dev_t *spi_hw;
 }spi_drv;
 
-struct _spi_device_message {
+struct spi_device_message {
 	void  __iomem *tx;
 	u32 tx_actual_length;
 	void  __iomem *rx;
@@ -61,7 +61,7 @@ struct _spi_device_message {
 	struct mutex msg_lock;
 }spi_device_message;
 
-struct _spi_device {
+struct spi_device {
 	struct device dev;
 	struct spi_device_message *msg;
 	void *spi_device_gadget;
@@ -85,7 +85,7 @@ struct _spi_device {
  */
 static int spi_device_open(struct inode *inode, struct file *filp)
 {
-	struct spi_drv *drv;
+	struct spi_drv *drv = &drv;
         struct spi_device *slave_device;
         struct spi_device_message *msg;
         int ret = -ENXIO;
@@ -95,7 +95,7 @@ static int spi_device_open(struct inode *inode, struct file *filp)
 	//mutex_lock(&spi_device_dev_list_lock);
 
         list_for_each_entry(drv, &spi_device_dev_list, device_entry) {
-                if (drv.dev_num == inode->i_rdev) {
+                if (drv->dev_num == inode->i_rdev) {
                         ret = 0;
                         break;
                 }
@@ -688,4 +688,3 @@ module_exit(spi_device_exit);
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Tinh Nguyen Van");
 MODULE_DESCRIPTION("SPI device driver");
-
