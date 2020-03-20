@@ -86,7 +86,7 @@ struct _spi_device {
  */
 static int spi_device_open(struct inode *inode, struct file *filp)
 {
-	struct spi_drv *drv = &drv;
+	struct spi_drv *drv;
         struct spi_device *slave_device;
         struct spi_device_message *msg;
         int ret = -ENXIO;
