@@ -24,7 +24,6 @@ static int buf_depth = 64;
 module_param(buf_depth, int, S_IRUGO | S_IWUSR);
 
 static LIST_HEAD(spi_device_dev_list);
-static LIST_HEAD(spi_device_dev_list);
 static DEFINE_MUTEX(spi_device_dev_list_lock);
 static DEFINE_IDR(spi_device_idr);
 static DEFINE_SPINLOCK(spi_device_idr_lock);
